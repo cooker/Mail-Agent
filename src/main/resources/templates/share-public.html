@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head(${share.title})}"></head>
+<body class="public-body"><main class="public-main">
+  <header><div><p class="eyebrow">SHARED MAILBOX</p><h1 th:text="${share.title}"></h1><p class="muted filter-lines" th:text="${'主题包含任一：\n' + share.subjectKeyword}"></p><p class="fine filter-lines" th:unless="${#strings.isEmpty(share.recipientKeyword)}" th:text="${'收件人包含任一：\n' + share.recipientKeyword}"></p></div><div class="brand"><span class="mark">M</span> Mail Agent</div></header>
+  <section class="panel">
+    <p class="empty" th:if="${results.empty}">暂无匹配邮件。</p>
+    <div class="mail-list" th:unless="${results.empty}"><a class="mail-row" th:each="mail : ${results.content}" th:href="@{/s/{token}/mail/{id}(token=${token},id=${mail.id})}"><div><strong th:text="${#strings.isEmpty(mail.subject) ? '（无主题）' : mail.subject}"></strong><small th:text="${mail.sender}"></small></div><time th:text="${#temporals.format(mail.receivedAt, 'yyyy-MM-dd HH:mm')}"></time></a></div>
+    <div class="pagination"><a th:if="${results.hasPrevious()}" th:href="@{/s/{token}(token=${token},page=${results.number - 1})}">← 上一页</a><span class="fine" th:text="${'第 ' + (results.number + 1) + ' 页 · 共 ' + results.totalElements + ' 封'}"></span><a th:if="${results.hasNext()}" th:href="@{/s/{token}(token=${token},page=${results.number + 1})}">下一页 →</a></div>
+  </section>
+  <p class="public-foot">此页面由 Mail Agent 分享。链接持有者可以查看页面中的邮件内容。</p>
+</main></body>
+</html>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('邮件详情')}"></head>
+<body>
+<aside th:replace="~{layout :: nav('records')}"></aside>
+<main class="main narrow">
+  <header><div><p class="eyebrow" th:text="${'MESSAGE / ' + mail.id}"></p><h1 class="mail-title" th:text="${#strings.isEmpty(mail.subject) ? '（无主题）' : mail.subject}"></h1></div><a class="button" th:href="@{/records}">返回邮箱内容</a></header>
+  <div th:replace="~{layout :: alerts}"></div>
+  <section class="panel"><dl><dt>原始发件人</dt><dd th:text="${mail.sender}"></dd><dt>To / Cc</dt><dd th:text="${mail.recipients}"></dd><dt>接收时间</dt><dd th:text="${#temporals.format(mail.receivedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd><dt>处理时间</dt><dd th:text="${#temporals.format(mail.processedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd><dt>命中规则编号</dt><dd th:text="${mail.matchedRules}"></dd><dt>处理结果</dt><dd th:text="${mail.outcome}"></dd></dl></section>
+  <section class="panel">
+    <h2>邮件正文</h2>
+    <p class="alert" th:unless="${content.available}">此邮件没有可用的本地内容。升级前已完成转发的邮件，原始文件可能已被清理。</p>
+    <div class="mail-html" th:if="${content.available and !#strings.isEmpty(content.html)}" th:utext="${content.html}"></div>
+    <pre class="mail-body" th:if="${content.available and #strings.isEmpty(content.html)}" th:text="${#strings.isEmpty(content.text) ? '（无文本正文）' : content.text}"></pre>
+    <div th:if="${content.available and !#lists.isEmpty(content.attachments)}"><h2>附件</h2><div class="attachment" th:each="item : ${content.attachments}"><div><strong th:text="${item.name}"></strong><small th:text="${item.contentType + (item.size >= 0 ? ' · ' + item.size + ' bytes' : '')}"></small></div><a class="button" th:href="@{/records/{mailId}/attachments/{index}(mailId=${mail.id},index=${item.index})}">下载</a></div></div>
+    <p class="fine">HTML 邮件会保留安全的排版格式；远程图片、脚本和危险属性不会加载或执行。</p>
+  </section>
+  <section class="panel" th:each="task : ${tasks}"><div class="section-title"><h2 th:text="${task.target}"></h2><span th:replace="~{layout :: status(${task.status})}"></span></div><p class="fine" th:text="${'已尝试 ' + task.attempts + ' 次'}"></p><p class="alert" th:if="${task.lastError}" th:text="${task.lastError}"></p><p th:if="${task.status.name() == 'RETRY'}">下次重试：<span th:text="${#temporals.format(task.nextAttempt, 'yyyy-MM-dd HH:mm:ss')}"></span></p><form th:if="${task.status.name() == 'FAILED' or task.status.name() == 'UNKNOWN'}" th:action="@{/deliveries/{id}/retry(id=${task.id})}" method="post"><label class="checkbox"><input type="checkbox" name="confirmed" value="true" required>我已核查目标邮箱，确认需要重试并知晓可能重复发送。</label><button>重新加入发送队列</button></form><details><summary>发送记录</summary><div class="attempt" th:each="attempt : ${history[task.id]}"><span class="mono fine" th:text="${#temporals.format(attempt.attemptedAt, 'yyyy-MM-dd HH:mm:ss')}"></span><strong th:text="${T(io.mailagent.DeliveryStatus).valueOf(attempt.outcome).label}"></strong><p class="fine" th:text="${attempt.detail}"></p></div></details></section>
+  <p class="empty" th:if="${#lists.isEmpty(tasks)}">此邮件未创建转发任务。</p>
+</main>
+</body></html>

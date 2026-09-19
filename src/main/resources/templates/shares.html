@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('分享页面')}"></head>
+<body>
+<aside th:replace="~{layout :: nav('shares')}"></aside>
+<main class="main">
+  <header><div><p class="eyebrow">SHARED MAILBOX</p><h1>分享页面</h1><p class="muted">按来源邮箱、收件人和主题创建范围明确的公开链接。</p></div></header>
+  <div th:replace="~{layout :: alerts}"></div>
+  <section class="panel" th:if="${shareUrl}">
+    <h2>复制分享链接</h2>
+    <div class="share-link"><input readonly th:value="${shareUrl}"><a class="button primary" th:href="${shareUrl}" target="_blank" rel="noopener">打开页面 ↗</a></div>
+    <p class="fine">链接也会保存在下方“已有分享”中。停用或删除分享后，链接立即失效。</p>
+  </section>
+  <section class="panel">
+    <h2>新建分享</h2>
+    <form th:action="@{/shares}" method="post" th:object="${form}">
+      <div class="form-grid">
+        <label>分享名称<input th:field="*{title}" maxlength="200" required placeholder="例如：财务账单"></label>
+        <label>来源邮箱<select th:field="*{accountId}"><option value="">全部邮箱</option><option th:each="a : ${allAccounts}" th:value="${a.id}" th:text="${a.name + ' · ' + a.email}"></option></select></label>
+        <label>收件人包含任一<textarea th:field="*{recipientKeyword}" maxlength="1000" rows="3" placeholder="finance@example.com&#10;audit@example.com"></textarea><small>逗号、分号或换行分隔，匹配邮件的 To/Cc；留空表示不限。</small></label>
+        <label>主题包含任一<textarea th:field="*{subjectKeyword}" maxlength="1000" rows="3" required placeholder="账单&#10;付款通知"></textarea><small>每行一个主题关键词，命中任意一个即可。</small></label>
+        <label>过期日期<input th:field="*{expiresOn}" type="date"><small>留空表示永久有效，之后可随时停用。</small></label>
+      </div>
+      <button class="primary">创建分享链接</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="section-title"><h2>已有分享</h2><span class="fine" th:text="${#lists.size(shares) + ' 个'}"></span></div>
+    <p class="empty" th:if="${#lists.isEmpty(shares)}">尚未创建分享页面。</p>
+    <div class="table-wrap" th:unless="${#lists.isEmpty(shares)}"><table><thead><tr><th>名称 / 筛选条件</th><th>来源</th><th>有效期</th><th>状态</th><th></th></tr></thead><tbody>
+      <tr th:each="share : ${shares}">
+        <td><strong th:text="${share.title}"></strong><small class="filter-lines" th:text="${'主题包含任一：\n' + share.subjectKeyword}"></small><small class="filter-lines" th:text="${#strings.isEmpty(share.recipientKeyword) ? '收件人：不限' : '收件人包含任一：\n' + share.recipientKeyword}"></small><div class="share-link existing-share-link" th:if="${shareUrls[share.id] != null}"><input readonly aria-label="分享链接" th:value="${shareUrls[share.id]}"><a class="button" th:href="${shareUrls[share.id]}" target="_blank" rel="noopener">查看 ↗</a></div><p class="fine legacy-link" th:if="${shareUrls[share.id] == null}">此链接创建于升级前；重新生成后可在此查看。</p></td>
+        <td><span th:if="${share.accountId == null}">全部邮箱</span><span th:each="a : ${allAccounts}" th:if="${a.id == share.accountId}" th:text="${a.name}"></span></td>
+        <td th:text="${share.expiresAt == null ? '永久' : #temporals.format(share.expiresAt, 'yyyy-MM-dd HH:mm')}"></td>
+        <td><span class="badge" th:classappend="${share.enabled ? 'SENT' : 'PENDING'}" th:text="${share.enabled ? '有效' : '已停用'}"></span></td>
+        <td><div class="actions"><a class="button" th:href="@{/shares/{id}/edit(id=${share.id})}">编辑</a><form th:if="${shareUrls[share.id] == null}" th:action="@{/shares/{id}/regenerate(id=${share.id})}" method="post"><button>生成可查看链接</button></form><form th:action="@{/shares/{id}/toggle(id=${share.id})}" method="post"><button th:text="${share.enabled ? '停用' : '重新启用'}"></button></form><form th:action="@{/shares/{id}/delete(id=${share.id})}" method="post"><button class="danger">删除</button></form></div></td>
+      </tr>
+    </tbody></table></div>
+  </section>
+</main>
+</body>
+</html>

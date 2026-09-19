@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('编辑分享')}"></head>
+<body>
+<aside th:replace="~{layout :: nav('shares')}"></aside>
+<main class="main narrow">
+  <header><div><p class="eyebrow">SHARED MAILBOX</p><h1>编辑分享</h1><p class="muted">修改后原分享链接保持不变，并立即使用新的筛选条件。</p></div></header>
+  <form th:action="@{/shares/{id}/edit(id=${share.id})}" method="post" th:object="${form}">
+    <section class="panel">
+      <div class="form-grid">
+        <label>分享名称<input th:field="*{title}" maxlength="200" required></label>
+        <label>来源邮箱<select th:field="*{accountId}"><option value="">全部邮箱</option><option th:each="a : ${allAccounts}" th:value="${a.id}" th:text="${a.name + ' · ' + a.email}"></option></select></label>
+        <label>收件人包含任一<textarea th:field="*{recipientKeyword}" maxlength="1000" rows="4"></textarea><small>逗号、分号或换行分隔；留空表示不限。</small></label>
+        <label>主题包含任一<textarea th:field="*{subjectKeyword}" maxlength="1000" rows="4" required></textarea><small>每行一个主题关键词。</small></label>
+        <label>过期日期<input th:field="*{expiresOn}" type="date"><small>留空表示永久有效。</small></label>
+      </div>
+    </section>
+    <div class="actions"><button class="primary">保存修改</button><a class="button quiet" th:href="@{/shares}">取消</a></div>
+  </form>
+</main>
+</body>
+</html>
