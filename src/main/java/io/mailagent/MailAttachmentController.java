@@ -16,7 +16,7 @@ public class MailAttachmentController {
 
     @GetMapping("/records/{mailId}/attachments/{index}")
     public ResponseEntity<byte[]> admin(@PathVariable Long mailId,@PathVariable int index) {
-        ReceivedMail mail=mails.findById(mailId).orElseThrow(()->new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND));
+        ReceivedMail mail=mails.findByIdAndDeletedFalse(mailId).orElseThrow(()->new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND));
         return response(contents.download(mail.payloadName,index));
     }
 

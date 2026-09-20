@@ -1,7 +1,26 @@
-<!doctype html><html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
-<head th:fragment="head(title)"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title th:text="${title} + ' · Mail Agent'">Mail Agent</title><link rel="stylesheet" th:href="@{/app.css}"><link rel="stylesheet" th:href="@{/mail-content.css}"></head>
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${title} + ' · Mail Agent'">Mail Agent</title>
+  <link rel="stylesheet" th:href="@{/app.css}"><link rel="stylesheet" th:href="@{/mail-content.css}">
+</head>
 <body>
-<aside th:fragment="nav(active)" class="sidebar"><a class="brand" th:href="@{/}"><span class="mark">M</span> Mail Agent</a><div class="nav-label">邮箱工作台</div><nav><a th:href="@{/}" th:classappend="${active == 'dashboard'} ? 'active'">运行概览</a><a th:href="@{/accounts}" th:classappend="${active == 'accounts'} ? 'active'">邮箱账号</a><a th:href="@{/rules}" th:classappend="${active == 'rules'} ? 'active'">转发规则</a><a th:href="@{/rules/test}" th:classappend="${active == 'test'} ? 'active'">匹配测试</a><a th:href="@{/records}" th:classappend="${active == 'records'} ? 'active'">邮箱内容</a><a th:href="@{/shares}" th:classappend="${active == 'shares'} ? 'active'">分享页面</a></nav><div class="sidebar-bottom"><span class="muted">每 60 秒检查新邮件</span><form th:action="@{/logout}" method="post"><button class="quiet" type="submit">退出登录 ↗</button></form></div></aside>
+<aside th:fragment="nav(active)" class="sidebar">
+  <a class="skip-link" href="#main-content">跳转到主要内容</a>
+  <a class="brand" th:href="@{/}"><span class="mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z M3 6l9 7 9-7"/></svg></span>Mail Agent</a>
+  <div class="workspace-label">管理空间 / 邮箱工作台</div>
+  <div class="nav-label">工作空间</div>
+  <nav aria-label="主导航">
+      <a th:href="@{/}" th:classappend="${active == 'dashboard'} ? 'active'" th:attr="aria-current=${active == 'dashboard' ? 'page' : null}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z"/></svg><span>运行概览</span></a>
+      <a th:href="@{/accounts}" th:classappend="${active == 'accounts'} ? 'active'" th:attr="aria-current=${active == 'accounts' ? 'page' : null}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z M3 6l9 7 9-7"/></svg><span>邮箱账号</span></a>
+      <a th:href="@{/rules}" th:classappend="${active == 'rules'} ? 'active'" th:attr="aria-current=${active == 'rules' ? 'page' : null}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16 M5 8h9a4 4 0 0 1 4 4v8 M2 17l3 3 3-3 M15 17l3 3 3-3"/></svg><span>转发规则</span></a>
+      <a th:href="@{/rules/test}" th:classappend="${active == 'test'} ? 'active'" th:attr="aria-current=${active == 'test' ? 'page' : null}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6 M10 3v6l-6 10a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3 M8 15h8"/></svg><span>匹配测试</span></a>
+      <a th:href="@{/records}" th:classappend="${active == 'records'} ? 'active'" th:attr="aria-current=${active == 'records' ? 'page' : null}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3z M3 14h5l2 3h4l2-3h5"/></svg><span>邮箱内容</span></a>
+      <a th:href="@{/shares}" th:classappend="${active == 'shares'} ? 'active'" th:attr="aria-current=${active == 'shares' ? 'page' : null}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12l8-7 M8 12l8 7 M8 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0 M22 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0 M22 20a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/></svg><span>分享页面</span></a>
+  </nav>
+  <div class="sidebar-bottom"><span class="muted">邮箱 · 规则 · 分享</span><form th:action="@{/logout}" method="post"><button class="quiet" type="submit">退出登录</button></form></div>
+</aside>
 <div th:fragment="alerts"><div th:if="${notice}" class="notice" role="status" th:text="${notice}"></div><div th:if="${error}" class="alert" role="alert" th:text="${error}"></div></div>
 <span th:fragment="status(value)" class="badge" th:classappend="${value.name()}" th:switch="${value.name()}"><span th:case="'PENDING'">待发送</span><span th:case="'SENDING'">发送中</span><span th:case="'RETRY'">等待重试</span><span th:case="'SENT'">已发送</span><span th:case="'FAILED'">失败</span><span th:case="'UNKNOWN'">结果未知</span></span>
 </body></html>

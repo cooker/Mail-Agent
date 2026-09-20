@@ -10,6 +10,8 @@ public class ReceivedMail {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
     @Column(nullable=false)
+    public boolean deleted;
+    @Column(nullable=false)
     public Long accountId;
     @Column(nullable=false)
     public String folderName;

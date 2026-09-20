@@ -3,7 +3,7 @@
 <head th:replace="~{layout :: head('邮箱内容')}"></head>
 <body>
 <aside th:replace="~{layout :: nav('records')}"></aside>
-<main class="main">
+<main id="main-content" tabindex="-1" class="main">
   <header><div><p class="eyebrow">MAILBOX CONTENT</p><h1>邮箱内容</h1><p class="muted">指定挂载邮箱，按发件人、收件人和主题查找已同步邮件。</p></div></header>
   <div th:replace="~{layout :: alerts}"></div>
   <section class="panel"><form th:action="@{/records}" method="get" class="filters"><label>来源账号<select name="accountId"><option value="">全部账号</option><option th:each="a : ${allAccounts}" th:value="${a.id}" th:text="${a.name}" th:selected="${accountId == a.id}"></option></select></label><label>发件人包含<input type="search" name="sender" maxlength="500" th:value="${sender}" placeholder="name@example.com"></label><label>收件人包含<input type="search" name="recipient" maxlength="500" th:value="${recipient}" placeholder="To 或 Cc 地址"></label><label>主题包含<input type="search" name="subject" maxlength="1000" th:value="${subject}" placeholder="输入主题关键词"></label><label>转发状态<select name="status"><option value="">全部状态</option><option th:each="s : ${T(io.mailagent.DeliveryStatus).values()}" th:value="${s}" th:selected="${status == s}" th:text="${s.label}"></option></select></label><label>开始日期<input type="date" name="from" th:value="${from}"></label><label>结束日期<input type="date" name="to" th:value="${to}"></label><button>筛选</button><a class="button secondary" th:href="@{/records}">清空</a></form></section>

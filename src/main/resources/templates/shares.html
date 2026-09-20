@@ -3,7 +3,7 @@
 <head th:replace="~{layout :: head('分享页面')}"></head>
 <body>
 <aside th:replace="~{layout :: nav('shares')}"></aside>
-<main class="main">
+<main id="main-content" tabindex="-1" class="main">
   <header><div><p class="eyebrow">SHARED MAILBOX</p><h1>分享页面</h1><p class="muted">按来源邮箱、收件人和主题创建范围明确的公开链接。</p></div></header>
   <div th:replace="~{layout :: alerts}"></div>
   <section class="panel" th:if="${shareUrl}">

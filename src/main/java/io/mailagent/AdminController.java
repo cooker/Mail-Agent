@@ -14,12 +14,14 @@ import java.util.*;
 
 @Controller
 public class AdminController {
+    private final MailScheduler scheduler; private final LocalMailService localMail;
     private final AccountRepository accounts; private final RuleRepository rules; private final MailRepository mails;
     private final DeliveryRepository deliveries; private final AttemptRepository attempts; private final ConfigurationService config;
     private final DeliveryService sender; private final MailGateway gateway; private final RuleMatcher matcher; private final MailContentService contents;
     public AdminController(AccountRepository accounts,RuleRepository rules,MailRepository mails,DeliveryRepository deliveries,
             AttemptRepository attempts,ConfigurationService config,DeliveryService sender,MailGateway gateway,RuleMatcher matcher,
-            MailContentService contents) {
+            MailContentService contents, MailScheduler scheduler, LocalMailService localMail) {
+        this.scheduler=scheduler; this.localMail=localMail;
         this.accounts=accounts; this.rules=rules; this.mails=mails; this.deliveries=deliveries; this.attempts=attempts;
         this.config=config; this.sender=sender; this.gateway=gateway; this.matcher=matcher; this.contents=contents;
     }
@@ -28,13 +30,29 @@ public class AdminController {
     @GetMapping("/login") public String login() { return "login"; }
     @GetMapping("/") public String dashboard(Model model) {
         model.addAttribute("accountCount",accounts.count()); model.addAttribute("ruleCount",rules.count());
-        model.addAttribute("mailCount",mails.count()); model.addAttribute("sentCount",deliveries.countByStatus(DeliveryStatus.SENT));
+        model.addAttribute("mailCount",mails.countByDeletedFalse()); model.addAttribute("sentCount",deliveries.countByStatus(DeliveryStatus.SENT));
         model.addAttribute("unknownCount",deliveries.countByStatus(DeliveryStatus.UNKNOWN));
         model.addAttribute("failedCount",deliveries.countByStatus(DeliveryStatus.FAILED));
-        model.addAttribute("recent",mails.findAll(PageRequest.of(0,8,Sort.by("processedAt").descending())).getContent());
+        model.addAttribute("recent",mails.findByDeletedFalse(PageRequest.of(0,8,Sort.by("processedAt").descending())).getContent());
         return "dashboard";
     }
     @GetMapping("/accounts") public String accountList() { return "accounts"; }
+    @PostMapping("/accounts/sync") public String synchronize(@RequestParam(required=false) List<Long> accountIds,
+            @RequestParam(defaultValue="false") boolean all,RedirectAttributes flash) {
+        List<Long> ids=all ? accounts.findByEnabledTrueOrderById().stream().map(a->a.id).toList()
+                : accountIds==null ? List.of() : accountIds;
+        if (!all && ids.isEmpty()) throw new IllegalArgumentException("请先选择要同步的邮箱");
+        int count=scheduler.synchronize(ids);
+        flash.addFlashAttribute("notice","已提交 " + count + " 个邮箱同步；暂停、需重置或已在队列中的账号会跳过。请刷新查看最近检查时间和错误。");
+        return "redirect:/accounts";
+    }
+    @PostMapping("/records/{id}/delete") public String deleteMail(@PathVariable Long id,
+            @RequestParam(defaultValue="false") boolean confirmed,RedirectAttributes flash) {
+        if (!confirmed) throw new IllegalArgumentException("请确认仅删除本地邮件，并停止未完成的转发任务");
+        localMail.delete(id);
+        flash.addFlashAttribute("notice","本地邮件已删除，服务器原件不受影响。");
+        return "redirect:/records";
+    }
     @GetMapping("/accounts/new") public String accountNew(Model model) {
         model.addAttribute("form",new AccountForm()); model.addAttribute("id",null); return "account-form";
     }
@@ -83,6 +101,7 @@ public class AdminController {
         String subjectFilter=mailFilter(subject,"主题",1000);
         Specification<ReceivedMail> spec=(root,query,cb)-> {
             var conditions=new ArrayList<jakarta.persistence.criteria.Predicate>();
+            conditions.add(cb.isFalse(root.get("deleted")));
             if (accountId!=null) conditions.add(cb.equal(root.get("accountId"),accountId));
             if (!senderFilter.isEmpty()) conditions.add(cb.like(cb.lower(root.<String>get("sender")),likePattern(senderFilter),'\\'));
             if (!recipientFilter.isEmpty()) conditions.add(cb.like(cb.lower(root.<String>get("recipients")),likePattern(recipientFilter),'\\'));
@@ -112,7 +131,7 @@ public class AdminController {
         return "%"+value.toLowerCase(Locale.ROOT).replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
     }
     @GetMapping("/records/{id}") public String record(@PathVariable Long id,Model model) {
-        ReceivedMail mail=mails.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ReceivedMail mail=mails.findByIdAndDeletedFalse(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
         var tasks=deliveries.findByMailIdOrderById(id); Map<Long,List<DeliveryAttempt>> history=new HashMap<>();
         tasks.forEach(t->history.put(t.id,attempts.findByDeliveryIdOrderByIdDesc(t.id)));
         model.addAttribute("mail",mail); model.addAttribute("tasks",tasks); model.addAttribute("history",history);

@@ -380,6 +380,73 @@ class MailAgentIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("100% 完成")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("100X 完成"))));
     }
+    @Test void bulkManualSyncIsProtectedAndSkipsPausedAccounts() throws Exception {
+        Account a=account("source@example.com",1);
+        Account b=account("other@example.com",1);
+        source.deliver(message("手动收取一"));
+        green.getUserManager().getUser("other@example.com").deliver(message("手动收取二"));
+        mvc.perform(post("/accounts/sync").with(user("admin")).param("all","true"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/accounts/sync").with(user("admin")).with(csrf()))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/accounts/sync").with(user("admin")).with(csrf())
+                .param("accountIds",a.id.toString(),b.id.toString(),a.id.toString()))
+                .andExpect(redirectedUrl("/accounts"));
+        long deadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+        while ((accounts.findById(a.id).orElseThrow().lastChecked==null ||
+                accounts.findById(b.id).orElseThrow().lastChecked==null) && System.nanoTime()<deadline) Thread.sleep(20);
+        assertThat(mails.countByDeletedFalse()).isEqualTo(2);
+        a=accounts.findById(a.id).orElseThrow(); a.enabled=false; accounts.save(a);
+        source.deliver(message("暂停不收取"));
+        mvc.perform(post("/accounts/sync").with(user("admin")).with(csrf()).param("accountIds",a.id.toString()))
+                .andExpect(flash().attribute("notice",org.hamcrest.Matchers.containsString("已提交 0 个")));
+        green.getUserManager().getUser("other@example.com").deliver(message("全部同步"));
+        Instant previous=accounts.findById(b.id).orElseThrow().lastChecked;
+        mvc.perform(post("/accounts/sync").with(user("admin")).with(csrf()).param("all","true"))
+                .andExpect(redirectedUrl("/accounts"));
+        deadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+        while (!accounts.findById(b.id).orElseThrow().lastChecked.isAfter(previous) && System.nanoTime()<deadline) Thread.sleep(20);
+        assertThat(mails.countByDeletedFalse()).isEqualTo(3);
+        mvc.perform(get("/accounts").with(user("admin"))).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("同步选中邮箱")));
+    }
+
+    @Test void localDeletionRevokesViewsStopsDeliveryAndRetainsServerAndDedup() throws Exception {
+        Account a=account("source@example.com",1); Delivery task=pending(a);
+        ReceivedMail mail=mails.findById(task.mailId).orElseThrow(); String payload=mail.payloadName;
+        ShareForm form=new ShareForm(); form.title="删除测试"; form.subjectKeyword="账单";
+        var share=shareService.create(form);
+        mvc.perform(post("/records/"+mail.id+"/delete").with(user("admin"))).andExpect(status().isForbidden());
+        mvc.perform(post("/records/"+mail.id+"/delete").with(user("admin")).with(csrf())).andExpect(status().isBadRequest());
+        mvc.perform(get("/records/"+mail.id).with(user("admin"))).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("删除本地邮件")));
+        mvc.perform(post("/records/"+mail.id+"/delete").with(user("admin")).with(csrf()).param("confirmed","true"))
+                .andExpect(redirectedUrl("/records"));
+        assertThat(payloads.exists(payload)).isFalse();
+        assertThat(mails.findById(mail.id).orElseThrow().deleted).isTrue();
+        assertThat(mails.countByDeletedFalse()).isZero();
+        assertThat(shareService.mails(share.page(),0)).isEmpty();
+        for (String path:List.of("/records/"+mail.id,"/records/"+mail.id+"/attachments/0",
+                "/s/"+share.token()+"/mail/"+mail.id,"/s/"+share.token()+"/mail/"+mail.id+"/attachments/0"))
+            mvc.perform(get(path).with(user("admin"))).andExpect(status().isNotFound());
+        assertThatThrownBy(()->sending.retry(task.id)).isInstanceOf(IllegalArgumentException.class);
+        sending.send(task.id);
+        assertThat(deliveries.findById(task.id).orElseThrow().attempts).isZero();
+        // Replay the same UID range to prove deletion cannot be undone by a repeated fetch.
+        a=accounts.findById(a.id).orElseThrow(); a.lastUid=0; accounts.save(a); polling.poll(a.id);
+        assertThat(mails.count()).isEqualTo(1); assertThat(mails.countByDeletedFalse()).isZero();
+        try (Store store=gateway.openImap(accounts.findById(a.id).orElseThrow())) {
+            Folder inbox=store.getFolder("INBOX"); inbox.open(Folder.READ_ONLY);
+            assertThat(inbox.getMessageCount()).isEqualTo(1);
+            assertThat(inbox.getMessage(1).isSet(Flags.Flag.DELETED)).isFalse();
+            assertThat(inbox.getMessage(1).isSet(Flags.Flag.SEEN)).isFalse();
+            inbox.close(false);
+        }
+        mvc.perform(get("/records").with(user("admin"))).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("此条件下暂无邮件")));
+        mvc.perform(get("/").with(user("admin"))).andExpect(status().isOk());
+    }
+
     @TestConfiguration static class TestConfig {
         @Bean @Primary TestGateway testGateway(SecretCipher cipher) { return new TestGateway(cipher); }
     }

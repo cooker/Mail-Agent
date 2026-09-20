@@ -31,6 +31,7 @@ public class DeliveryService {
             if (!account.enabled || (delivery.status!=DeliveryStatus.PENDING && delivery.status!=DeliveryStatus.RETRY)
                     || delivery.nextAttempt.isAfter(Instant.now())) return;
             ReceivedMail mail=mails.findById(delivery.mailId).orElseThrow();
+            if (mail.deleted) return;
             MimeMessage message;
             try { message=composer.compose(payloads.read(mail.payloadName),account,delivery,mail.payloadName); }
             catch (Exception e) { finish(delivery,DeliveryStatus.FAILED,"无法读取或构建邮件内容，请检查任务文件",null); return; }
@@ -90,6 +91,7 @@ public class DeliveryService {
             if (task.status!=DeliveryStatus.FAILED && task.status!=DeliveryStatus.UNKNOWN)
                 throw new IllegalArgumentException("只有失败或结果未知的任务可以手动重试");
             ReceivedMail mail=mails.findById(task.mailId).orElseThrow();
+            if (mail.deleted) throw new IllegalArgumentException("邮件已在本地删除，无法重试");
             if (!payloads.exists(mail.payloadName)) throw new IllegalArgumentException("邮件任务文件不存在，无法重试");
             task.retryCount=0; finish(task,DeliveryStatus.PENDING,"管理员请求重新发送",Instant.now());
         } finally { lock.unlock(); }

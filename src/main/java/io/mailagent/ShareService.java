@@ -62,6 +62,7 @@ public class ShareService {
         return (root,query,cb)-> {
             var conditions=new ArrayList<jakarta.persistence.criteria.Predicate>();
             if (share.accountId!=null) conditions.add(cb.equal(root.get("accountId"),share.accountId));
+            conditions.add(cb.isFalse(root.get("deleted")));
             conditions.add(cb.isNotNull(root.get("payloadName")));
             var subjectExpression=cb.lower(cb.coalesce(root.<String>get("subject"),""));
             var subjectConditions=new ArrayList<jakarta.persistence.criteria.Predicate>();

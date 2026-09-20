@@ -19,6 +19,7 @@ public class MailScheduler {
     private final ExecutorService workers=Executors.newVirtualThreadPerTaskExecutor();
     private final AccountRepository accounts; private final DeliveryRepository deliveries;
     private final MailPollingService polling; private final DeliveryService sending;
+    private final java.util.Set<Long> queued=ConcurrentHashMap.newKeySet();
     private final boolean enabled; private volatile boolean ready;
     public MailScheduler(AccountRepository accounts, DeliveryRepository deliveries, MailPollingService polling,
             DeliveryService sending, @Value("${app.scheduling-enabled:true}") boolean enabled) {
@@ -29,7 +30,7 @@ public class MailScheduler {
     @Scheduled(fixedDelayString="${app.poll-delay-ms:60000}", initialDelay=2000)
     public void poll() {
         if (!enabled || !ready) return;
-        for (Account account:accounts.findByEnabledTrueOrderById()) run(() -> polling.poll(account.id));
+        for (Account account:accounts.findByEnabledTrueOrderById()) enqueuePoll(account.id);
     }
     @Scheduled(fixedDelayString="${app.send-delay-ms:5000}", initialDelay=3000)
     public void send() {
@@ -38,6 +39,19 @@ public class MailScheduler {
         // One worker per account processes its due targets serially; accounts remain independent.
         due.stream().collect(java.util.stream.Collectors.groupingBy(d -> d.accountId)).values()
                 .forEach(group -> run(() -> group.forEach(d -> sending.send(d.id))));
+    }
+    public int synchronize(java.util.Collection<Long> ids) {
+        var selected=accounts.findAllById(new java.util.HashSet<>(ids));
+        int count=0;
+        for (Account account:selected)
+            if (account.enabled && !account.resetRequired && enqueuePoll(account.id)) count++;
+        return count;
+    }
+    private boolean enqueuePoll(Long id) {
+        if (!queued.add(id)) return false;
+        try { run(() -> { try { polling.poll(id); } finally { queued.remove(id); } }); }
+        catch (RuntimeException e) { queued.remove(id); throw e; }
+        return true;
     }
     private void run(Runnable action) {
         workers.submit(() -> { try { action.run(); } catch (Exception e) {

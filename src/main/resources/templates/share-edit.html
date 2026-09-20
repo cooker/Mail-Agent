@@ -3,7 +3,7 @@
 <head th:replace="~{layout :: head('编辑分享')}"></head>
 <body>
 <aside th:replace="~{layout :: nav('shares')}"></aside>
-<main class="main narrow">
+<main id="main-content" tabindex="-1" class="main narrow">
   <header><div><p class="eyebrow">SHARED MAILBOX</p><h1>编辑分享</h1><p class="muted">修改后原分享链接保持不变，并立即使用新的筛选条件。</p></div></header>
   <form th:action="@{/shares/{id}/edit(id=${share.id})}" method="post" th:object="${form}">
     <section class="panel">
